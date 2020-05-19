@@ -1,5 +1,5 @@
 <template>
-  <div class="highlight-container highlight-container--bottom-labels" @click="open" @touchend="open">
+  <div @click="open" @touchend="open" :class="classes">
     <entity-item
       v-for="(chunk, i) in chunks"
       :key="i"
@@ -18,12 +18,7 @@
       absolute
       offset-y
     >
-      <v-list
-        dense
-        min-width="150"
-        max-height="400"
-        class="overflow-y-auto"
-      >
+      <v-list dense min-width="150" max-height="400" class="overflow-y-auto">
         <v-list-item
           v-for="(label, i) in labels"
           :key="i"
@@ -44,43 +39,43 @@
 </template>
 
 <script>
-import EntityItem from '~/components/molecules/EntityItem'
+import EntityItem from "~/components/molecules/EntityItem";
 
 export default {
   components: {
-    EntityItem
+    EntityItem,
   },
   props: {
     text: {
       type: String,
-      default: '',
-      required: true
+      default: "",
+      required: true,
     },
     labels: {
       type: Array,
-      default: () => ([]),
-      required: true
+      default: () => [],
+      required: true,
     },
     entities: {
       type: Array,
-      default: () => ([]),
-      required: true
+      default: () => [],
+      required: true,
     },
     deleteAnnotation: {
       type: Function,
-      default: () => ([]),
-      required: true
+      default: () => [],
+      required: true,
     },
     updateEntity: {
       type: Function,
-      default: () => ([]),
-      required: true
+      default: () => [],
+      required: true,
     },
     addEntity: {
       type: Function,
-      default: () => ([]),
-      required: true
-    }
+      default: () => [],
+      required: true,
+    },
   },
   data() {
     return {
@@ -88,143 +83,175 @@ export default {
       x: 0,
       y: 0,
       start: 0,
-      end: 0
-    }
+      end: 0,
+      classes: ["highlight-container", "highlight-container--bottom-labels"],
+    };
   },
   computed: {
     sortedEntities() {
-      return this.entities.slice().sort((a, b) => a.start_offset - b.start_offset)
+      return this.entities
+        .slice()
+        .sort((a, b) => a.start_offset - b.start_offset);
     },
 
     chunks() {
-      let chunks = []
-      const entities = this.sortedEntities
-      let startOffset = 0
+      let chunks = [];
+      const entities = this.sortedEntities;
+      let startOffset = 0;
       for (const entity of entities) {
         // add non-entities to chunks.
-        chunks = chunks.concat(this.makeChunks(this.text.slice(startOffset, entity.start_offset)))
-        startOffset = entity.end_offset
+        chunks = chunks.concat(
+          this.makeChunks(this.text.slice(startOffset, entity.start_offset))
+        );
+        startOffset = entity.end_offset;
 
         // add entities to chunks.
-        const label = this.labelObject[entity.label]
+        const label = this.labelObject[entity.label];
         chunks.push({
           id: entity.id,
           label: label.text,
           color: label.background_color,
-          text: this.text.slice(entity.start_offset, entity.end_offset)
-        })
+          text: this.text.slice(entity.start_offset, entity.end_offset),
+        });
       }
       // add the rest of text.
-      chunks = chunks.concat(this.makeChunks(this.text.slice(startOffset, this.text.length)))
-      return chunks
+      chunks = chunks.concat(
+        this.makeChunks(this.text.slice(startOffset, this.text.length))
+      );
+      return chunks;
     },
 
     labelObject() {
-      const obj = {}
+      const obj = {};
       for (const label of this.labels) {
-        obj[label.id] = label
+        obj[label.id] = label;
       }
-      return obj
+      return obj;
+    },
+  },
+  beforeUpdate() {
+    console.log(this.text);
+    const arabic = /[\u0600-\u06FF]/;
+    if (arabic.test(this.text[0])) {
+      if (this.classes.includes("rtl")) {
+        return;
+      }
+      this.classes.push("rtl");
+    } else {
+      const index = this.classes.indexOf("rtl");
+      if (index > -1) {
+        this.classes.splice(index, 1);
+      }
     }
+    console.log(this.classes);
   },
   methods: {
     makeChunks(text) {
-      const chunks = []
-      const snippets = text.split('\n')
+      const chunks = [];
+      const snippets = text.split("\n");
       for (const snippet of snippets.slice(0, -1)) {
         chunks.push({
           label: null,
           color: null,
-          text: snippet + '\n',
-          newline: false
-        })
+          text: snippet + "\n",
+          newline: false,
+        });
         chunks.push({
           label: null,
           color: null,
-          text: '',
-          newline: true
-        })
+          text: "",
+          newline: true,
+        });
       }
       chunks.push({
         label: null,
         color: null,
         text: snippets.slice(-1)[0],
-        newline: false
-      })
-      return chunks
+        newline: false,
+      });
+      return chunks;
     },
     show(e) {
-      e.preventDefault()
-      this.showMenu = false
-      this.x = e.clientX || e.changedTouches[0].clientX
-      this.y = e.clientY || e.changedTouches[0].clientY
+      e.preventDefault();
+      this.showMenu = false;
+      this.x = e.clientX || e.changedTouches[0].clientX;
+      this.y = e.clientY || e.changedTouches[0].clientY;
       this.$nextTick(() => {
-        this.showMenu = true
-      })
+        this.showMenu = true;
+      });
     },
     setSpanInfo() {
-      let selection
+      let selection;
       // Modern browsers.
       if (window.getSelection) {
-        selection = window.getSelection()
+        selection = window.getSelection();
       } else if (document.selection) {
-        selection = document.selection
+        selection = document.selection;
       }
       // If nothing is selected.
       if (selection.rangeCount <= 0) {
-        return
+        return;
       }
-      const range = selection.getRangeAt(0)
-      const preSelectionRange = range.cloneRange()
-      preSelectionRange.selectNodeContents(this.$el)
-      preSelectionRange.setEnd(range.startContainer, range.startOffset)
-      this.start = [...preSelectionRange.toString()].length
-      this.end = this.start + [...range.toString()].length
+      const range = selection.getRangeAt(0);
+      const preSelectionRange = range.cloneRange();
+      preSelectionRange.selectNodeContents(this.$el);
+      preSelectionRange.setEnd(range.startContainer, range.startOffset);
+      this.start = [...preSelectionRange.toString()].length;
+      this.end = this.start + [...range.toString()].length;
     },
     validateSpan() {
-      if ((typeof this.start === 'undefined') || (typeof this.end === 'undefined')) {
-        return false
+      if (
+        typeof this.start === "undefined" ||
+        typeof this.end === "undefined"
+      ) {
+        return false;
       }
       if (this.start === this.end) {
-        return false
+        return false;
       }
       for (const entity of this.entities) {
-        if ((entity.start_offset <= this.start) && (this.start < entity.end_offset)) {
-          return false
+        if (
+          entity.start_offset <= this.start &&
+          this.start < entity.end_offset
+        ) {
+          return false;
         }
-        if ((entity.start_offset < this.end) && (this.end <= entity.end_offset)) {
-          return false
+        if (entity.start_offset < this.end && this.end <= entity.end_offset) {
+          return false;
         }
-        if ((this.start < entity.start_offset) && (entity.end_offset < this.end)) {
-          return false
+        if (this.start < entity.start_offset && entity.end_offset < this.end) {
+          return false;
         }
       }
-      return true
+      return true;
     },
     open(e) {
-      this.setSpanInfo()
+      this.setSpanInfo();
       if (this.validateSpan()) {
-        this.show(e)
+        this.show(e);
       }
     },
     assignLabel(labelId) {
       if (this.validateSpan()) {
-        this.addEntity(this.start, this.end, labelId)
-        this.showMenu = false
-        this.start = 0
-        this.end = 0
+        this.addEntity(this.start, this.end, labelId);
+        this.showMenu = false;
+        this.start = 0;
+        this.end = 0;
       }
-    }
-  }
-}
+    },
+  },
+};
 </script>
 
 <style scoped>
+.rtl {
+  direction: rtl;
+}
 .highlight-container.highlight-container--bottom-labels {
   align-items: flex-start;
 }
 .highlight-container {
-  line-height: 42px!important;
+  line-height: 42px !important;
   display: flex;
   flex-wrap: wrap;
   white-space: pre-wrap;
