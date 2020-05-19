@@ -130,20 +130,15 @@ export default {
     },
   },
   beforeUpdate() {
-    console.log(this.text);
-    const arabic = /[\u0600-\u06FF]/;
-    if (arabic.test(this.text[0])) {
-      if (this.classes.includes("rtl")) {
-        return;
-      }
-      this.classes.push("rtl");
+    const arabicPattern = /[\u0600-\u06FF]/ // TODO: update to check for any RTL language.
+    if (arabicPattern.test(this.text)) {
+      if (!this.classes.includes('rtl')) this.classes.push('rtl')
     } else {
       const index = this.classes.indexOf("rtl");
       if (index > -1) {
         this.classes.splice(index, 1);
       }
     }
-    console.log(this.classes);
   },
   methods: {
     makeChunks(text) {
